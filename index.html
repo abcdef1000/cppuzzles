@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Centroid Decomposition Puzzle</title>
   <style>
-    :root {
+    :root { 
       --bg: #0f172a;
       --panel: #111827;
       --text: #e5e7eb;
@@ -209,6 +209,7 @@
     let edges = [];
     let answerNode = null;
     let arrowGroup = null;
+    let arrowLine = null;
     let gameOver = false;
 
     function generateTree(n = 13) {
@@ -301,6 +302,10 @@
       arrowGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       arrowGroup.setAttribute('id', 'direction-arrows');
       svg.appendChild(arrowGroup);
+      arrowLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      arrowLine.classList.add('direction');
+      arrowLine.style.display = 'none';
+      svg.appendChild(arrowLine);
 
       adjacency.forEach((_, id) => {
         const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -351,6 +356,7 @@
       if (gameOver) return;
       if (nodeId === answerNode) {
         statusBox.innerHTML = `You found the centroid at <strong>node ${answerNode}</strong>! Hit restart to play again.`;
+        arrowLine.style.display = 'none';
         document.querySelectorAll('.node').forEach((n) => n.classList.remove('found'));
         document.querySelector(`.node[data-id="${nodeId}"]`).classList.add('found');
         gameOver = true;
@@ -369,6 +375,7 @@
       arrowLine.setAttribute('x2', to.x);
       arrowLine.setAttribute('y2', to.y);
       arrowGroup.appendChild(arrowLine);
+      arrowLine.style.display = 'block';
 
       statusBox.innerHTML = `Move along the highlighted edge from <strong>${nodeId}</strong> toward <strong>${next}</strong>.`;
     }
@@ -379,6 +386,7 @@
         ? parsedInput
         : 13;
       nodeCountInput.value = nodeCount;
+      const nodeCount = 11 + Math.floor(Math.random() * 5);
       const { adj, edgePairs } = generateTree(nodeCount);
       adjacency = adj;
       edges = edgePairs;

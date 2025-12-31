@@ -13,3 +13,4 @@ If GitHub warns about conflicts when you try to merge changes, pull the branch l
 6. Push the branch and open/refresh the pull request; GitHub should now show it as mergeable.
 
 If you accidentally accepted the wrong side everywhere, you can restart the merge with `git merge --abort` and try again, or restore a specific file from the target branch with `git checkout --theirs <file>`.
+A minimal collection of competitive programming puzzle prototypes. Open `index.html` in your browser to try the centroid decomposition direction-finding puzzle.
