@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Algorithm Puzzles: Centroid & Dijkstra</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #38bdf8;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --edge: #1f2937;
+      --error: #ef4444;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      width: 360px;
+      padding: 24px;
+      background: var(--panel);
+      border-right: 1px solid #1f2937;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    h1 { margin: 0; font-size: 24px; letter-spacing: 0.4px; }
+    h2 { margin: 4px 0 0; font-size: 18px; }
+    p { margin: 0; color: var(--muted); line-height: 1.6; }
+
+    .tabs { display: flex; gap: 8px; }
+    .tab {
+      flex: 1;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #1f2937;
+      background: linear-gradient(145deg, #1f2937, #0b1221);
+      color: var(--text);
+      cursor: pointer;
+      transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+      font-weight: 600;
+    }
+    .tab:hover { transform: translateY(-1px); border-color: var(--accent); }
+    .tab.active { background: #0b1221; border-color: var(--accent); color: var(--accent); }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      background: #0b1221;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      font-size: 12px;
+      color: var(--muted);
+      width: fit-content;
+    }
+
+    .controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .status { background: #0b1221; border: 1px solid #1f2937; padding: 12px 14px; border-radius: 10px; font-size: 14px; color: var(--text); }
+    .status strong { color: var(--accent); }
+
+    button {
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid #1f2937;
+      background: linear-gradient(145deg, #1f2937, #0b1221);
+      color: var(--text);
+      cursor: pointer;
+      transition: transform 120ms ease, border-color 120ms ease;
+      font-size: 14px;
+    }
+
+    button:hover { transform: translateY(-1px); border-color: var(--accent); }
+
+    label { display: inline-flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+    input[type="number"] {
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid #1f2937;
+      background: #0b1221;
+      color: var(--text);
+      width: 120px;
+    }
+
+    .legend { display: grid; grid-template-columns: auto 1fr; row-gap: 8px; column-gap: 12px; align-items: center; margin-top: 8px; }
+    .dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--edge); }
+    .dot.normal { background: #172033; }
+    .dot.target { background: var(--success); }
+    .dot.hint { background: #6b7280; }
+    .dot.shortest { background: var(--accent); border-color: var(--accent); }
+    .dot.error { background: var(--error); border-color: var(--error); }
+
+    .panel { display: none; flex-direction: column; gap: 12px; }
+    .panel.active { display: flex; }
+
+    .canvas { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .puzzle-area { display: none; width: 100%; }
+    .puzzle-area.active { display: block; }
+
+    svg {
+      width: min(100%, 1100px);
+      height: 90vh;
+      background: radial-gradient(circle at 20% 20%, #16233b 0%, #0b1221 45%, #070c16 100%);
+      border: 1px solid #111827;
+      border-radius: 18px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+    }
+
+    /* Centroid visuals */
+    #tree .edge {
+      stroke: var(--edge);
+      stroke-width: 3.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: 0.9;
+    }
+    #tree .edge.impossible { opacity: 0.25; }
+    #tree .node circle { fill: #0f172a; stroke: #1f2937; stroke-width: 3; transition: transform 150ms ease, stroke 150ms ease, fill 150ms ease; }
+    #tree .node text { fill: var(--text); font-size: 13px; pointer-events: none; }
+    #tree .node:hover circle { stroke: var(--accent); transform: scale(1.04); }
+    #tree .node.target circle { stroke: var(--success); }
+    #tree .node.found circle { stroke: var(--success); fill: #12251a; }
+    #tree .node.impossible circle { fill: #111827; stroke: #1f2937; opacity: 0.35; }
+    #tree .node.impossible text { fill: #6b7280; }
+    #tree .node.optimal-step circle { stroke: var(--warning); filter: drop-shadow(0 0 8px rgba(245,158,11,0.5)); }
+    #tree .node.optimal-step text { fill: var(--warning); }
+
+    /* Dijkstra visuals */
+    #graph .edge {
+      stroke: var(--edge);
+      stroke-width: 3.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: 0.9;
+      cursor: pointer;
+      filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.2));
+      transition: stroke 140ms ease, opacity 140ms ease, stroke-width 140ms ease, filter 140ms ease;
+    }
+    #graph .edge:hover:not(.path-correct):not(.path-wrong):not(.optimal) {
+      stroke: #6b7280;
+      stroke-width: 4.5;
+      opacity: 1;
+      filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.35));
+    }
+    #graph .edge.path-correct { stroke: var(--success); opacity: 1; stroke-width: 4; }
+    #graph .edge.path-wrong { stroke: var(--error); opacity: 1; stroke-width: 4; }
+    #graph .edge.optimal { stroke: var(--accent); opacity: 1; stroke-width: 4.5; filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.4)); }
+
+    #graph .node circle { fill: #0f172a; stroke: #1f2937; stroke-width: 3; transition: transform 150ms ease, stroke 150ms ease, fill 150ms ease; }
+    #graph .node text { fill: var(--text); font-size: 13px; pointer-events: none; }
+    #graph .node:hover circle { stroke: var(--accent); transform: scale(1.04); }
+    #graph .node.target circle { stroke: var(--success); }
+    #graph .node.found circle { stroke: var(--success); fill: #12251a; }
+    #graph .node.visited circle { stroke: var(--accent); fill: #0b1e32; }
+    #graph .node.current circle { stroke: var(--success); }
+
+    .weight-label {
+      fill: var(--muted);
+      font-size: 12px;
+      pointer-events: none;
+      paint-order: stroke fill;
+      stroke: #0b1221;
+      stroke-width: 4px;
+    }
+
+    .example-box { display: flex; flex-direction: column; gap: 8px; }
+    .example-tabs { display: flex; gap: 6px; }
+    .example-tab {
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid #1f2937;
+      background: #0b1221;
+      color: var(--text);
+      cursor: pointer;
+      transition: border-color 120ms ease, color 120ms ease;
+      font-weight: 600;
+    }
+    .example-tab.active { border-color: var(--accent); color: var(--accent); }
+    textarea.example-input {
+      width: 100%;
+      min-height: 120px;
+      border-radius: 10px;
+      border: 1px solid #1f2937;
+      background: #0b1221;
+      color: var(--text);
+      padding: 10px;
+      font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+      resize: vertical;
+    }
+    .example-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <h1>Algorithm Puzzles</h1>
+    <div class="tabs">
+      <button class="tab active" data-puzzle="centroid">Centroid</button>
+      <button class="tab" data-puzzle="dijkstra">Dijkstra</button>
+    </div>
+
+    <div id="centroid-panel" class="panel active">
+      <div class="badge">Puzzle 1 · Tree Direction Finder</div>
+      <p>Pick a node on the tree. We grey out impossible areas to steer you toward the hidden centroid. Find it with the fewest clicks you can!</p>
+      <div class="controls">
+        <label>
+          Nodes
+          <input type="number" id="node-count" min="5" max="50" value="13" />
+        </label>
+        <button id="restart">Restart puzzle</button>
+      </div>
+      <div class="status example-box">
+        <div class="example-tabs" id="centroid-examples">
+          <button class="example-tab active" data-example="1">Example 1</button>
+          <button class="example-tab" data-example="2">Example 2</button>
+        </div>
+        <textarea id="centroid-example-input" class="example-input" aria-label="Centroid example graph"></textarea>
+        <div class="example-actions">
+          <button id="centroid-save">Save example</button>
+          <button id="centroid-load">Load into puzzle</button>
+        </div>
+        <p>Format: N on first line, then one edge <code>a b</code> per line.</p>
+      </div>
+      <div class="status" id="status">Click any node to get started.</div>
+      <div class="legend">
+        <div class="dot normal"></div><span>Regular node</span>
+        <div class="dot hint"></div><span>Greyed-out node (cannot contain the centroid)</span>
+        <div class="dot target"></div><span>Hidden centroid (revealed when found)</span>
+      </div>
+      <div class="status" id="attempts">Attempts: 0</div>
+      <div class="status" id="optimal">Optimal path will appear after you find the centroid.</div>
+    </div>
+
+    <div id="dijkstra-panel" class="panel">
+      <div class="badge">Puzzle 2 · Dijkstra Shortest Path</div>
+      <p>Build a shortest path from <strong>node 0</strong> to <strong>node N</strong>. Click edges starting from node 0; edges on some optimal route turn green, others turn red. Reveal the optimal Dijkstra run whenever you need.</p>
+      <div class="controls">
+        <label>
+          Nodes
+          <input type="number" id="graph-nodes" min="4" max="14" value="8" />
+        </label>
+        <button id="graph-restart">New graph</button>
+        <button id="graph-answer">Show answer</button>
+      </div>
+      <div class="status example-box">
+        <div class="example-tabs" id="dijkstra-examples">
+          <button class="example-tab active" data-example="1">Example 1</button>
+          <button class="example-tab" data-example="2">Example 2</button>
+        </div>
+        <textarea id="dijkstra-example-input" class="example-input" aria-label="Dijkstra example graph"></textarea>
+        <div class="example-actions">
+          <button id="dijkstra-save">Save example</button>
+          <button id="dijkstra-load">Load into puzzle</button>
+        </div>
+        <p>Format: N E on first line, then edges as <code>a b w</code> per line.</p>
+      </div>
+      <div class="legend">
+        <div class="dot shortest"></div><span>Edge on a shortest path</span>
+        <div class="dot error"></div><span>Edge off any optimal path</span>
+        <div class="dot target"></div><span>Goal node N</span>
+      </div>
+      <div class="status" id="graph-status">Click edges touching node 0 to trace an optimal route.</div>
+      <div class="status" id="graph-distance">Shortest distance: —</div>
+    </div>
+  </aside>
+
+  <main class="canvas">
+    <div class="puzzle-area active" data-puzzle="centroid">
+      <svg id="tree" viewBox="0 0 1100 800" aria-label="Centroid puzzle tree"></svg>
+    </div>
+    <div class="puzzle-area" data-puzzle="dijkstra">
+      <svg id="graph" viewBox="0 0 1100 800" aria-label="Dijkstra puzzle graph"></svg>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      // --- Tab switching ---
+      const tabButtons = document.querySelectorAll('.tab');
+      const panels = document.querySelectorAll('.panel');
+      const areas = document.querySelectorAll('.puzzle-area');
+
+      tabButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const target = btn.dataset.puzzle;
+          tabButtons.forEach((b) => b.classList.toggle('active', b === btn));
+          panels.forEach((panel) => panel.classList.toggle('active', panel.id.startsWith(target)));
+          areas.forEach((area) => area.classList.toggle('active', area.dataset.puzzle === target));
+        });
+      });
+
+      const defaultCentroidExamples = [
+        `4
+0 1
+0 2
+0 3`,
+        `7
+0 1
+1 2
+1 3
+3 4
+3 5
+5 6`,
+      ];
+
+      const defaultDijkstraExamples = [
+        `4 3
+0 1 5
+0 2 6
+0 3 10`,
+        `6 7
+0 1 4
+1 2 3
+2 5 5
+0 3 6
+3 4 2
+4 5 2
+1 4 7`,
+      ];
+
+      const exampleKey = (kind, index) => `${kind}-example-${index}`;
+
+      function loadExample(kind, index, defaults) {
+        const stored = localStorage.getItem(exampleKey(kind, index));
+        return stored ?? defaults[index - 1];
+      }
+
+      // --- Centroid puzzle ---
+      const svg = document.getElementById('tree');
+      const statusBox = document.getElementById('status');
+      const attemptsBox = document.getElementById('attempts');
+      const optimalBox = document.getElementById('optimal');
+      const restartButton = document.getElementById('restart');
+      const nodeCountInput = document.getElementById('node-count');
+      const centroidExampleTabs = document.querySelectorAll('#centroid-examples .example-tab');
+      const centroidExampleInput = document.getElementById('centroid-example-input');
+      const centroidSaveButton = document.getElementById('centroid-save');
+      const centroidLoadButton = document.getElementById('centroid-load');
+      let activeCentroidExample = 1;
+
+      let adjacency = [];
+      let positions = [];
+      let edges = [];
+      let answerNode = null;
+      let impossibleNodes = new Set();
+      let gameOver = false;
+      let attempts = 0;
+      let optimalPath = [];
+      let optimalTimers = [];
+
+      function generateTree(n = 13) {
+        const adj = Array.from({ length: n }, () => []);
+        const edgePairs = [];
+        for (let i = 1; i < n; i++) {
+          const parent = Math.floor(Math.random() * i);
+          adj[parent].push(i);
+          adj[i].push(parent);
+          edgePairs.push([parent, i]);
+        }
+        return { adj, edgePairs };
+      }
+
+      function buildTreeFromPairs(n, pairs) {
+        const adj = Array.from({ length: n }, () => []);
+        const edgePairs = [];
+        pairs.forEach(([a, b]) => {
+          if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0 || a >= n || b >= n || a === b) return;
+          adj[a].push(b);
+          adj[b].push(a);
+          edgePairs.push([a, b]);
+        });
+        return { adj, edgePairs };
+      }
+
+      function parseCentroidExample(text) {
+        const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+        if (lines.length === 0) return null;
+        const n = parseInt(lines[0], 10);
+        if (!Number.isFinite(n) || n < 1) return null;
+        const pairs = [];
+        lines.slice(1).forEach((line) => {
+          const [a, b] = line.split(/\s+/).map(Number);
+          if (Number.isFinite(a) && Number.isFinite(b)) pairs.push([a, b]);
+        });
+        if (n > 1 && pairs.length === 0) return null;
+        return { n, pairs };
+      }
+
+      function computeLayout(root = 0) {
+        const depth = Array(adjacency.length).fill(0);
+        const width = Array(adjacency.length).fill(1);
+
+        function measure(node, parent) {
+          let totalWidth = 0;
+          for (const next of adjacency[node]) {
+            if (next === parent) continue;
+            depth[next] = depth[node] + 1;
+            totalWidth += measure(next, node);
+          }
+          if (totalWidth === 0) totalWidth = 1;
+          width[node] = totalWidth;
+          return totalWidth;
+        }
+
+        measure(root, -1);
+
+        const xPositions = Array(adjacency.length).fill(0);
+        function place(node, parent, startX) {
+          const children = adjacency[node].filter((n) => n !== parent);
+          if (children.length === 0) {
+            xPositions[node] = startX + 0.5;
+            return startX + 1;
+          }
+          let cursor = startX;
+          const childCenters = [];
+          for (const child of children) {
+            const nextCursor = place(child, node, cursor);
+            const childSpan = nextCursor - cursor;
+            childCenters.push(cursor + childSpan / 2);
+            cursor = nextCursor;
+          }
+          xPositions[node] = childCenters.reduce((a, b) => a + b, 0) / childCenters.length;
+          return cursor;
+        }
+
+        place(root, -1, 0);
+
+        positions = depth.map((d, i) => ({
+          x: xPositions[i] * 80 + 80,
+          y: d * 110 + 80,
+        }));
+      }
+
+      function renderTree() {
+        svg.innerHTML = '';
+        edges.forEach(([u, v]) => {
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.classList.add('edge');
+          line.setAttribute('x1', positions[u].x);
+          line.setAttribute('y1', positions[u].y);
+          line.setAttribute('x2', positions[v].x);
+          line.setAttribute('y2', positions[v].y);
+          line.dataset.u = u;
+          line.dataset.v = v;
+          svg.appendChild(line);
+        });
+
+        adjacency.forEach((_, id) => {
+          const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          group.classList.add('node');
+          group.dataset.id = id;
+          group.setAttribute('transform', `translate(${positions[id].x}, ${positions[id].y})`);
+
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('r', 18);
+          group.appendChild(circle);
+
+          const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          label.setAttribute('text-anchor', 'middle');
+          label.setAttribute('dominant-baseline', 'middle');
+          label.textContent = id;
+          group.appendChild(label);
+
+          group.addEventListener('click', () => handleClick(id));
+          svg.appendChild(group);
+        });
+      }
+
+      function bfsNextStep(start, goal) {
+        if (start === goal) return { found: true, next: null };
+        const queue = [start];
+        const parent = new Map([[start, -1]]);
+        while (queue.length) {
+          const node = queue.shift();
+          if (node === goal) break;
+          for (const neighbor of adjacency[node]) {
+            if (!parent.has(neighbor)) {
+              parent.set(neighbor, node);
+              queue.push(neighbor);
+            }
+          }
+        }
+        if (!parent.has(goal)) return { found: false, next: null };
+        let cur = goal;
+        let prev = parent.get(cur);
+        while (prev !== start) {
+          cur = prev;
+          prev = parent.get(cur);
+        }
+        return { found: true, next: cur };
+      }
+
+      function markImpossible(start, toward) {
+        const newlyImpossible = new Set();
+        const stack = [start];
+        newlyImpossible.add(start);
+
+        while (stack.length) {
+          const node = stack.pop();
+          for (const neighbor of adjacency[node]) {
+            if (neighbor === toward || newlyImpossible.has(neighbor) || impossibleNodes.has(neighbor)) continue;
+            newlyImpossible.add(neighbor);
+            stack.push(neighbor);
+          }
+        }
+
+        newlyImpossible.forEach((n) => impossibleNodes.add(n));
+        updateImpossibleVisuals();
+      }
+
+      function updateImpossibleVisuals() {
+        document.querySelectorAll('#tree .node').forEach((node) => {
+          const id = Number(node.dataset.id);
+          node.classList.toggle('impossible', impossibleNodes.has(id));
+        });
+
+        document.querySelectorAll('#tree .edge').forEach((edge) => {
+          const u = Number(edge.dataset.u);
+          const v = Number(edge.dataset.v);
+          const bothImpossible = impossibleNodes.has(u) && impossibleNodes.has(v);
+          edge.classList.toggle('impossible', bothImpossible);
+        });
+      }
+
+      function updateAttempts() {
+        attemptsBox.textContent = `Attempts: ${attempts}`;
+      }
+
+      function findCentroid(nodesSet) {
+        const anyNode = nodesSet.values().next().value;
+        const parent = new Map([[anyNode, -1]]);
+        const order = [anyNode];
+        const stack = [anyNode];
+
+        while (stack.length) {
+          const node = stack.pop();
+          for (const neighbor of adjacency[node]) {
+            if (!nodesSet.has(neighbor) || parent.has(neighbor)) continue;
+            parent.set(neighbor, node);
+            stack.push(neighbor);
+            order.push(neighbor);
+          }
+        }
+
+        const size = new Map(order.map((n) => [n, 1]));
+        for (let i = order.length - 1; i >= 0; i--) {
+          const node = order[i];
+          for (const neighbor of adjacency[node]) {
+            if (parent.get(neighbor) === node) {
+              size.set(node, size.get(node) + size.get(neighbor));
+            }
+          }
+        }
+
+        const total = nodesSet.size;
+        let centroid = anyNode;
+        let bestBalance = total;
+
+        for (const node of nodesSet) {
+          let maxPart = total - size.get(node);
+          for (const neighbor of adjacency[node]) {
+            if (parent.get(neighbor) === node) {
+              maxPart = Math.max(maxPart, size.get(neighbor));
+            }
+          }
+          if (maxPart < bestBalance) {
+            bestBalance = maxPart;
+            centroid = node;
+          }
+        }
+
+        return centroid;
+      }
+
+      function collectComponent(start, banned, allowedSet) {
+        const comp = new Set();
+        const stack = [start];
+        comp.add(start);
+        while (stack.length) {
+          const node = stack.pop();
+          for (const neighbor of adjacency[node]) {
+            if (neighbor === banned || !allowedSet.has(neighbor) || comp.has(neighbor)) continue;
+            comp.add(neighbor);
+            stack.push(neighbor);
+          }
+        }
+        return comp;
+      }
+
+      function computeOptimalPath(target) {
+        const path = [];
+        const dfs = (nodesSet) => {
+          const centroid = findCentroid(nodesSet);
+          path.push(centroid);
+          if (centroid === target) return;
+          const reduced = new Set(nodesSet);
+          reduced.delete(centroid);
+          const nextComponent = collectComponent(target, centroid, reduced);
+          dfs(nextComponent);
+        };
+
+        dfs(new Set(adjacency.map((_, i) => i)));
+        return path;
+      }
+
+      function highlightOptimalPath() {
+        document.querySelectorAll('#tree .node').forEach((n) => n.classList.remove('optimal-step'));
+        optimalTimers.forEach((id) => clearTimeout(id));
+        optimalTimers = [];
+
+        optimalPath.forEach((centroid, idx) => {
+          const timerId = setTimeout(() => {
+            const node = document.querySelector(`#tree .node[data-id="${centroid}"]`);
+            if (node) node.classList.add('optimal-step');
+            optimalBox.textContent = `Optimal centroid search step ${idx + 1} of ${optimalPath.length}: visit node ${centroid}`;
+          }, idx * 1000);
+          optimalTimers.push(timerId);
+        });
+      }
+
+      function handleClick(nodeId) {
+        if (gameOver) return;
+        attempts += 1;
+        updateAttempts();
+        if (nodeId === answerNode) {
+          statusBox.innerHTML = `You found the centroid at <strong>node ${answerNode}</strong> in <strong>${attempts}</strong> attempts!`;
+          document.querySelectorAll('#tree .node').forEach((n) => n.classList.remove('found'));
+          document.querySelector(`#tree .node[data-id="${nodeId}"]`).classList.add('found');
+          gameOver = true;
+          optimalBox.textContent = `Optimal centroid decomposition would take ${optimalPath.length} steps. Replaying the path...`;
+          highlightOptimalPath();
+          return;
+        }
+
+        const { found, next } = bfsNextStep(nodeId, answerNode);
+        if (!found || next === null) return;
+
+        markImpossible(nodeId, next);
+        statusBox.innerHTML = `The centroid is not in the greyed-out region from <strong>${nodeId}</strong>. Keep searching!`;
+      }
+
+      function startPuzzle(exampleData = null) {
+        const parsedInput = parseInt(nodeCountInput.value, 10);
+        let totalNodes = Number.isFinite(parsedInput) && parsedInput >= 5 && parsedInput <= 50
+          ? parsedInput
+          : 13;
+
+        let tree;
+        if (exampleData) {
+          totalNodes = exampleData.n;
+          nodeCountInput.value = totalNodes;
+          tree = buildTreeFromPairs(exampleData.n, exampleData.pairs);
+        } else {
+          nodeCountInput.value = totalNodes;
+          tree = generateTree(totalNodes);
+        }
+
+        adjacency = tree.adj;
+        edges = tree.edgePairs;
+        answerNode = Math.floor(Math.random() * adjacency.length);
+        gameOver = false;
+        attempts = 0;
+        impossibleNodes = new Set();
+        optimalTimers.forEach((id) => clearTimeout(id));
+        optimalTimers = [];
+        computeLayout(0);
+        renderTree();
+        optimalPath = computeOptimalPath(answerNode);
+        statusBox.textContent = 'Click any node to eliminate regions that cannot hold the centroid.';
+        attemptsBox.textContent = 'Attempts: 0';
+        optimalBox.textContent = 'Optimal path will appear after you find the centroid.';
+      }
+
+      function setActiveCentroidExample(index) {
+        activeCentroidExample = index;
+        centroidExampleTabs.forEach((btn) => btn.classList.toggle('active', Number(btn.dataset.example) === index));
+        centroidExampleInput.value = loadExample('centroid', index, defaultCentroidExamples);
+      }
+
+      centroidExampleTabs.forEach((btn) => {
+        btn.addEventListener('click', () => setActiveCentroidExample(Number(btn.dataset.example)));
+      });
+
+      centroidSaveButton.addEventListener('click', () => {
+        localStorage.setItem(exampleKey('centroid', activeCentroidExample), centroidExampleInput.value.trim());
+      });
+
+      centroidLoadButton.addEventListener('click', () => {
+        const parsed = parseCentroidExample(centroidExampleInput.value);
+        if (!parsed) {
+          statusBox.textContent = 'Could not parse the example. Ensure format matches N then edges a b.';
+          return;
+        }
+        startPuzzle(parsed);
+        statusBox.textContent = 'Loaded example into the puzzle. Click nodes to search for the centroid.';
+      });
+
+      restartButton.addEventListener('click', () => startPuzzle());
+      setActiveCentroidExample(1);
+      startPuzzle();
+
+      // --- Dijkstra puzzle ---
+      const graphSvg = document.getElementById('graph');
+      const graphStatus = document.getElementById('graph-status');
+      const graphDistance = document.getElementById('graph-distance');
+      const graphRestart = document.getElementById('graph-restart');
+      const graphAnswer = document.getElementById('graph-answer');
+      const graphNodesInput = document.getElementById('graph-nodes');
+      const dijkstraExampleTabs = document.querySelectorAll('#dijkstra-examples .example-tab');
+      const dijkstraExampleInput = document.getElementById('dijkstra-example-input');
+      const dijkstraSaveButton = document.getElementById('dijkstra-save');
+      const dijkstraLoadButton = document.getElementById('dijkstra-load');
+      let activeDijkstraExample = 1;
+
+      let graphAdj = [];
+      let graphEdges = [];
+      let graphPositions = [];
+      let shortestDistance = Infinity;
+      let currentNode = 0;
+      let currentDistance = 0;
+      let graphGameOver = false;
+      let distFromStart = [];
+      let distToEnd = [];
+      let dijkstraOrder = [];
+      let optimalParents = [];
+      let answerTimers = [];
+
+      function generateWeightedGraph(n = 8) {
+        const adj = Array.from({ length: n }, () => []);
+        const edges = [];
+
+        // Build a base spanning tree for connectivity
+        for (let i = 1; i < n; i++) {
+          const parent = Math.floor(Math.random() * i);
+          const weight = 1 + Math.floor(Math.random() * 9);
+          adj[parent].push({ to: i, w: weight });
+          adj[i].push({ to: parent, w: weight });
+          edges.push([parent, i, weight]);
+        }
+
+        // Add some extra edges for interest
+        const extraEdges = Math.max(1, Math.floor(n / 2));
+        let tries = 0;
+        while (edges.length < n + extraEdges && tries < 200) {
+          tries += 1;
+          let u = Math.floor(Math.random() * n);
+          let v = Math.floor(Math.random() * n);
+          if (u === v) continue;
+          if (u > v) [v, u] = [u, v];
+          if (edges.some(([a, b]) => (a === u && b === v))) continue;
+          const weight = 1 + Math.floor(Math.random() * 9);
+          adj[u].push({ to: v, w: weight });
+          adj[v].push({ to: u, w: weight });
+          edges.push([u, v, weight]);
+        }
+
+        return { adj, edges };
+      }
+
+      function buildWeightedGraph(n, triples) {
+        const adj = Array.from({ length: n }, () => []);
+        const edges = [];
+        triples.forEach(([a, b, w]) => {
+          if (!Number.isInteger(a) || !Number.isInteger(b) || !Number.isFinite(w)) return;
+          if (a < 0 || b < 0 || a >= n || b >= n || a === b) return;
+          const weight = Math.max(1, Math.round(w));
+          adj[a].push({ to: b, w: weight });
+          adj[b].push({ to: a, w: weight });
+          edges.push([a, b, weight]);
+        });
+        return { adj, edges };
+      }
+
+      function parseDijkstraExample(text) {
+        const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+        if (lines.length === 0) return null;
+        const [nRaw, eRaw] = lines[0].split(/\s+/).map(Number);
+        if (!Number.isFinite(nRaw) || nRaw < 2 || !Number.isFinite(eRaw)) return null;
+        const triples = [];
+        lines.slice(1).forEach((line) => {
+          const [a, b, w] = line.split(/\s+/).map(Number);
+          if (Number.isFinite(a) && Number.isFinite(b) && Number.isFinite(w)) triples.push([a, b, w]);
+        });
+        if (triples.length === 0) return null;
+        return { n: nRaw, triples };
+      }
+
+      function layoutGraph() {
+        const n = graphAdj.length;
+        const width = 1020;
+        const height = 720;
+        const padding = 90;
+        const area = width * height;
+        const k = Math.sqrt(area / n);
+
+        graphPositions = Array.from({ length: n }, (_, i) => {
+          if (i === 0) return { x: padding, y: height / 2 };
+          if (i === n - 1) return { x: width - padding, y: height / 2 };
+          const angle = (2 * Math.PI * i) / Math.max(1, n - 1) - Math.PI / 2;
+          const radius = Math.min(width, height) / 3;
+          return {
+            x: width / 2 + radius * 0.55 * Math.cos(angle) + (Math.random() - 0.5) * 50,
+            y: height / 2 + radius * 0.55 * Math.sin(angle) + (Math.random() - 0.5) * 50,
+          };
+        });
+
+        let temperature = width / 8;
+        for (let iter = 0; iter < 80; iter++) {
+          const disp = Array.from({ length: n }, () => ({ x: 0, y: 0 }));
+
+          for (let i = 0; i < n; i++) {
+            for (let j = i + 1; j < n; j++) {
+              const dx = graphPositions[i].x - graphPositions[j].x;
+              const dy = graphPositions[i].y - graphPositions[j].y;
+              const dist = Math.hypot(dx, dy) + 0.01;
+              const force = (k * k) / dist;
+              const fx = (dx / dist) * force;
+              const fy = (dy / dist) * force;
+              disp[i].x += fx;
+              disp[i].y += fy;
+              disp[j].x -= fx;
+              disp[j].y -= fy;
+            }
+          }
+
+          graphEdges.forEach(([u, v]) => {
+            const dx = graphPositions[u].x - graphPositions[v].x;
+            const dy = graphPositions[u].y - graphPositions[v].y;
+            const dist = Math.hypot(dx, dy) + 0.01;
+            const force = (dist * dist) / k;
+            const fx = (dx / dist) * force;
+            const fy = (dy / dist) * force;
+            disp[u].x -= fx;
+            disp[u].y -= fy;
+            disp[v].x += fx;
+            disp[v].y += fy;
+          });
+
+          for (let i = 0; i < n; i++) {
+            const dx = disp[i].x;
+            const dy = disp[i].y;
+            const mag = Math.hypot(dx, dy) || 1;
+            graphPositions[i].x += (dx / mag) * Math.min(mag, temperature);
+            graphPositions[i].y += (dy / mag) * Math.min(mag, temperature);
+            graphPositions[i].x = Math.min(width - padding, Math.max(padding, graphPositions[i].x));
+            graphPositions[i].y = Math.min(height - padding, Math.max(padding, graphPositions[i].y));
+          }
+
+          temperature *= 0.95;
+          graphPositions[0] = { x: padding, y: height / 2 };
+          graphPositions[n - 1] = { x: width - padding, y: height / 2 };
+        }
+      }
+
+      function renderGraph() {
+        graphSvg.innerHTML = '';
+        graphEdges.forEach(([u, v, w]) => {
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.classList.add('edge');
+          line.setAttribute('x1', graphPositions[u].x);
+          line.setAttribute('y1', graphPositions[u].y);
+          line.setAttribute('x2', graphPositions[v].x);
+          line.setAttribute('y2', graphPositions[v].y);
+          line.dataset.u = u;
+          line.dataset.v = v;
+          line.dataset.w = w;
+          line.addEventListener('click', () => handleEdgeClick(line));
+          graphSvg.appendChild(line);
+
+          const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          label.classList.add('weight-label');
+          label.setAttribute('x', (graphPositions[u].x + graphPositions[v].x) / 2);
+          label.setAttribute('y', (graphPositions[u].y + graphPositions[v].y) / 2 - 4);
+          label.textContent = w;
+          graphSvg.appendChild(label);
+        });
+
+        graphAdj.forEach((_, id) => {
+          const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          group.classList.add('node');
+          group.dataset.id = id;
+          group.setAttribute('transform', `translate(${graphPositions[id].x}, ${graphPositions[id].y})`);
+
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('r', 18);
+          if (id === graphAdj.length - 1) circle.classList.add('target');
+          group.appendChild(circle);
+
+          const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          label.setAttribute('text-anchor', 'middle');
+          label.setAttribute('dominant-baseline', 'middle');
+          label.textContent = id;
+          group.appendChild(label);
+
+          graphSvg.appendChild(group);
+        });
+        updateGraphState();
+      }
+
+      function runDijkstra(source) {
+        const n = graphAdj.length;
+        const dist = Array(n).fill(Infinity);
+        const parent = Array(n).fill(-1);
+        const visited = new Set();
+        const order = [];
+        dist[source] = 0;
+
+        while (visited.size < n) {
+          let best = -1;
+          let bestDist = Infinity;
+          for (let i = 0; i < n; i++) {
+            if (visited.has(i)) continue;
+            if (dist[i] < bestDist) {
+              bestDist = dist[i];
+              best = i;
+            }
+          }
+          if (best === -1 || bestDist === Infinity) break;
+          visited.add(best);
+          order.push(best);
+          for (const { to, w } of graphAdj[best]) {
+            if (dist[best] + w < dist[to]) {
+              dist[to] = dist[best] + w;
+              parent[to] = best;
+            }
+          }
+        }
+
+        return { dist, parent, order };
+      }
+
+      function computeOptimalParents() {
+        const { dist, parent, order } = runDijkstra(0);
+        distFromStart = dist;
+        optimalParents = parent;
+        dijkstraOrder = order;
+        shortestDistance = dist[graphAdj.length - 1];
+
+        const reverse = runDijkstra(graphAdj.length - 1);
+        distToEnd = reverse.dist;
+      }
+
+      function handleEdgeClick(line) {
+        if (graphGameOver) return;
+        const u = Number(line.dataset.u);
+        const v = Number(line.dataset.v);
+        const w = Number(line.dataset.w);
+        const incident = u === currentNode || v === currentNode;
+        const nextNode = u === currentNode ? v : u === currentNode ? u : null;
+
+        if (!incident || nextNode === null) {
+          line.classList.add('path-wrong');
+          graphStatus.textContent = 'You must extend the path from your current node.';
+          return;
+        }
+
+        const candidateDistance = currentDistance + w + distToEnd[nextNode];
+        const onShortestPrefix = Math.abs(candidateDistance - shortestDistance) < 1e-6 && Math.abs(currentDistance - distFromStart[currentNode]) < 1e-6;
+
+        if (!onShortestPrefix) {
+          line.classList.add('path-wrong');
+          graphStatus.textContent = 'That edge is not on any optimal path. Try a different edge.';
+          return;
+        }
+
+        line.classList.add('path-correct');
+        currentDistance += w;
+        currentNode = nextNode;
+        updateGraphState();
+
+        if (currentNode === graphAdj.length - 1) {
+          graphGameOver = true;
+          graphStatus.textContent = `Great! You reached node ${currentNode} along a shortest path of length ${shortestDistance}.`;
+        } else {
+          graphStatus.textContent = `Good choice. You are at node ${currentNode}; continue along a shortest path.`;
+        }
+      }
+
+      function highlightOptimalPath() {
+        answerTimers.forEach((id) => clearTimeout(id));
+        answerTimers = [];
+        graphSvg.querySelectorAll('.edge').forEach((edge) => edge.classList.remove('optimal'));
+        graphSvg.querySelectorAll('.node').forEach((node) => node.classList.remove('visited', 'current'));
+
+        dijkstraOrder.forEach((nodeId, idx) => {
+          const timer = setTimeout(() => {
+            const nodeEl = graphSvg.querySelector(`.node[data-id="${nodeId}"]`);
+            if (nodeEl) nodeEl.classList.add('visited');
+            graphStatus.textContent = `Dijkstra visits node ${nodeId} (step ${idx + 1} of ${dijkstraOrder.length}).`;
+          }, idx * 700);
+          answerTimers.push(timer);
+        });
+
+        const pathNodes = [];
+        let cursor = graphAdj.length - 1;
+        while (cursor !== -1) {
+          pathNodes.push(cursor);
+          cursor = optimalParents[cursor];
+        }
+        pathNodes.reverse();
+
+        pathNodes.forEach((nodeId, idx) => {
+          const timer = setTimeout(() => {
+            const nodeEl = graphSvg.querySelector(`.node[data-id="${nodeId}"]`);
+            graphSvg.querySelectorAll('.node').forEach((n) => n.classList.remove('current'));
+            if (nodeEl) nodeEl.classList.add('current');
+            if (idx > 0) {
+              const a = pathNodes[idx - 1];
+              const b = nodeId;
+              const edgeEl = graphSvg.querySelector(`.edge[data-u="${a}"][data-v="${b}"]`) || graphSvg.querySelector(`.edge[data-u="${b}"][data-v="${a}"]`);
+              if (edgeEl) edgeEl.classList.add('optimal');
+            }
+            graphStatus.textContent = `Optimal path step ${idx + 1}/${pathNodes.length}: now at node ${nodeId}.`;
+          }, (dijkstraOrder.length + idx) * 700);
+          answerTimers.push(timer);
+        });
+      }
+
+      function updateGraphState() {
+        graphSvg.querySelectorAll('.node').forEach((node) => node.classList.remove('current'));
+        const currentNodeEl = graphSvg.querySelector(`.node[data-id="${currentNode}"]`);
+        if (currentNodeEl) currentNodeEl.classList.add('current');
+        graphDistance.textContent = `Shortest distance: ${Number.isFinite(shortestDistance) ? shortestDistance : '—'}`;
+      }
+
+      function setActiveDijkstraExample(index) {
+        activeDijkstraExample = index;
+        dijkstraExampleTabs.forEach((btn) => btn.classList.toggle('active', Number(btn.dataset.example) === index));
+        dijkstraExampleInput.value = loadExample('dijkstra', index, defaultDijkstraExamples);
+      }
+
+      dijkstraExampleTabs.forEach((btn) => {
+        btn.addEventListener('click', () => setActiveDijkstraExample(Number(btn.dataset.example)));
+      });
+
+      dijkstraSaveButton.addEventListener('click', () => {
+        localStorage.setItem(exampleKey('dijkstra', activeDijkstraExample), dijkstraExampleInput.value.trim());
+      });
+
+      dijkstraLoadButton.addEventListener('click', () => {
+        const parsed = parseDijkstraExample(dijkstraExampleInput.value);
+        if (!parsed) {
+          graphStatus.textContent = 'Could not parse example. Format is N E then edges a b w per line.';
+          return;
+        }
+        startGraph(parsed);
+        graphStatus.textContent = 'Loaded example into the puzzle. Begin from node 0 and trace a shortest path.';
+      });
+
+      function startGraph(exampleData = null) {
+        const parsed = parseInt(graphNodesInput.value, 10);
+        let totalNodes = Number.isFinite(parsed) && parsed >= 4 && parsed <= 14 ? parsed : 8;
+        let graphData;
+
+        if (exampleData) {
+          totalNodes = exampleData.n;
+          graphNodesInput.value = totalNodes;
+          graphData = buildWeightedGraph(exampleData.n, exampleData.triples);
+        } else {
+          graphNodesInput.value = totalNodes;
+          graphData = generateWeightedGraph(totalNodes);
+        }
+
+        graphAdj = graphData.adj;
+        graphEdges = graphData.edges;
+        layoutGraph();
+        computeOptimalParents();
+        currentNode = 0;
+        currentDistance = 0;
+        graphGameOver = false;
+        answerTimers.forEach((id) => clearTimeout(id));
+        answerTimers = [];
+        renderGraph();
+        graphStatus.textContent = 'Click edges touching node 0 to trace an optimal route.';
+        graphDistance.textContent = `Shortest distance: ${shortestDistance}`;
+      }
+
+      graphRestart.addEventListener('click', () => startGraph());
+      graphAnswer.addEventListener('click', highlightOptimalPath);
+      setActiveDijkstraExample(1);
+      startGraph();
+    })();
+  </script>
+</body>
+</html>
