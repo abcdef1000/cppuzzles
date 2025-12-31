@@ -62,7 +62,6 @@
       display: flex;
       gap: 12px;
       align-items: center;
-      flex-wrap: wrap;
     }
 
     button {
@@ -155,23 +154,6 @@
       color: var(--text);
     }
 
-    label {
-      display: inline-flex;
-      flex-direction: column;
-      gap: 6px;
-      font-size: 13px;
-      color: var(--muted);
-    }
-
-    input[type="number"] {
-      padding: 8px 10px;
-      border-radius: 10px;
-      border: 1px solid #1f2937;
-      background: #0b1221;
-      color: var(--text);
-      width: 120px;
-    }
-
     .status strong { color: var(--accent); }
   </style>
 </head>
@@ -181,10 +163,6 @@
     <div class="badge">Puzzle 1 · Tree Direction Finder</div>
     <p>Pick a node on the tree. We will point you along the path toward a hidden centroid. Find it with the fewest clicks you can!</p>
     <div class="controls">
-      <label>
-        Nodes
-        <input type="number" id="node-count" min="5" max="50" value="13" />
-      </label>
       <button id="restart">Restart puzzle</button>
       <div class="status" id="status">Click any node to get started.</div>
     </div>
@@ -202,13 +180,12 @@
     const svg = document.getElementById('tree');
     const statusBox = document.getElementById('status');
     const restartButton = document.getElementById('restart');
-    const nodeCountInput = document.getElementById('node-count');
 
     let adjacency = [];
     let positions = [];
     let edges = [];
     let answerNode = null;
-    let arrowGroup = null;
+    let arrowLine = null;
     let gameOver = false;
 
     function generateTree(n = 13) {
@@ -298,9 +275,10 @@
         svg.appendChild(line);
       });
 
-      arrowGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-      arrowGroup.setAttribute('id', 'direction-arrows');
-      svg.appendChild(arrowGroup);
+      arrowLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      arrowLine.classList.add('direction');
+      arrowLine.style.display = 'none';
+      svg.appendChild(arrowLine);
 
       adjacency.forEach((_, id) => {
         const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -351,6 +329,7 @@
       if (gameOver) return;
       if (nodeId === answerNode) {
         statusBox.innerHTML = `You found the centroid at <strong>node ${answerNode}</strong>! Hit restart to play again.`;
+        arrowLine.style.display = 'none';
         document.querySelectorAll('.node').forEach((n) => n.classList.remove('found'));
         document.querySelector(`.node[data-id="${nodeId}"]`).classList.add('found');
         gameOver = true;
@@ -362,23 +341,17 @@
 
       const from = positions[nodeId];
       const to = positions[next];
-      const arrowLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      arrowLine.classList.add('direction');
       arrowLine.setAttribute('x1', from.x);
       arrowLine.setAttribute('y1', from.y);
       arrowLine.setAttribute('x2', to.x);
       arrowLine.setAttribute('y2', to.y);
-      arrowGroup.appendChild(arrowLine);
+      arrowLine.style.display = 'block';
 
       statusBox.innerHTML = `Move along the highlighted edge from <strong>${nodeId}</strong> toward <strong>${next}</strong>.`;
     }
 
     function startPuzzle() {
-      const parsedInput = parseInt(nodeCountInput.value, 10);
-      const nodeCount = Number.isFinite(parsedInput) && parsedInput >= 5 && parsedInput <= 50
-        ? parsedInput
-        : 13;
-      nodeCountInput.value = nodeCount;
+      const nodeCount = 11 + Math.floor(Math.random() * 5);
       const { adj, edgePairs } = generateTree(nodeCount);
       adjacency = adj;
       edges = edgePairs;
