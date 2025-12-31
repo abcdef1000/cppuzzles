@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Centroid Decomposition Puzzle</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #38bdf8;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --edge: #1f2937;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      width: 320px;
+      padding: 24px;
+      background: var(--panel);
+      border-right: 1px solid #1f2937;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      letter-spacing: 0.4px;
+    }
+
+    p { margin: 0; color: var(--muted); line-height: 1.6; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      background: #0b1221;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      font-size: 12px;
+      color: var(--muted);
+      width: fit-content;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid #1f2937;
+      background: linear-gradient(145deg, #1f2937, #0b1221);
+      color: var(--text);
+      cursor: pointer;
+      transition: transform 120ms ease, border-color 120ms ease;
+      font-size: 14px;
+    }
+
+    button:hover { transform: translateY(-1px); border-color: var(--accent); }
+
+    .legend {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      row-gap: 8px;
+      column-gap: 12px;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    .dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid var(--edge);
+    }
+
+    .dot.normal { background: #172033; }
+    .dot.target { background: var(--success); }
+    .dot.hint { background: var(--accent); }
+
+    .canvas {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    svg {
+      width: min(100%, 1100px);
+      height: 90vh;
+      background: radial-gradient(circle at 20% 20%, #16233b 0%, #0b1221 45%, #070c16 100%);
+      border: 1px solid #111827;
+      border-radius: 18px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+    }
+
+    .edge {
+      stroke: var(--edge);
+      stroke-width: 3;
+      opacity: 0.8;
+    }
+
+    .direction {
+      stroke: var(--accent);
+      stroke-width: 4;
+      marker-end: url(#arrowhead);
+      filter: drop-shadow(0 0 6px rgba(56,189,248,0.6));
+    }
+
+    .node circle {
+      fill: #0f172a;
+      stroke: #1f2937;
+      stroke-width: 3;
+      transition: transform 150ms ease, stroke 150ms ease;
+    }
+
+    .node text {
+      fill: var(--text);
+      font-size: 13px;
+      pointer-events: none;
+    }
+
+    .node:hover circle { stroke: var(--accent); transform: scale(1.04); }
+
+    .node.target circle { stroke: var(--success); }
+    .node.found circle { stroke: var(--success); fill: #12251a; }
+
+    .status {
+      background: #0b1221;
+      border: 1px solid #1f2937;
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    label {
+      display: inline-flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    input[type="number"] {
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid #1f2937;
+      background: #0b1221;
+      color: var(--text);
+      width: 120px;
+    }
+
+    .status strong { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <h1>Centroid Decomposition</h1>
+    <div class="badge">Puzzle 1 · Tree Direction Finder</div>
+    <p>Pick a node on the tree. We will point you along the path toward a hidden centroid. Find it with the fewest clicks you can!</p>
+    <div class="controls">
+      <label>
+        Nodes
+        <input type="number" id="node-count" min="5" max="50" value="13" />
+      </label>
+      <button id="restart">Restart puzzle</button>
+      <div class="status" id="status">Click any node to get started.</div>
+    </div>
+    <div class="legend">
+      <div class="dot normal"></div><span>Regular node</span>
+      <div class="dot hint"></div><span>Arrow shows direction toward the answer</span>
+      <div class="dot target"></div><span>Hidden centroid (revealed when found)</span>
+    </div>
+  </aside>
+  <main class="canvas">
+    <svg id="tree" viewBox="0 0 1100 800" aria-label="Centroid puzzle tree"></svg>
+  </main>
+
+  <script>
+    const svg = document.getElementById('tree');
+    const statusBox = document.getElementById('status');
+    const restartButton = document.getElementById('restart');
+    const nodeCountInput = document.getElementById('node-count');
+
+    let adjacency = [];
+    let positions = [];
+    let edges = [];
+    let answerNode = null;
+    let arrowGroup = null;
+    let gameOver = false;
+
+    function generateTree(n = 13) {
+      const adj = Array.from({ length: n }, () => []);
+      const edgePairs = [];
+      for (let i = 1; i < n; i++) {
+        const parent = Math.floor(Math.random() * i);
+        adj[parent].push(i);
+        adj[i].push(parent);
+        edgePairs.push([parent, i]);
+      }
+      return { adj, edgePairs };
+    }
+
+    function computeLayout(root = 0) {
+      const depth = Array(adjacency.length).fill(0);
+      const width = Array(adjacency.length).fill(1);
+
+      function measure(node, parent) {
+        let totalWidth = 0;
+        for (const next of adjacency[node]) {
+          if (next === parent) continue;
+          depth[next] = depth[node] + 1;
+          totalWidth += measure(next, node);
+        }
+        if (totalWidth === 0) totalWidth = 1;
+        width[node] = totalWidth;
+        return totalWidth;
+      }
+
+      measure(root, -1);
+
+      const xPositions = Array(adjacency.length).fill(0);
+      function place(node, parent, startX) {
+        const children = adjacency[node].filter((n) => n !== parent);
+        if (children.length === 0) {
+          xPositions[node] = startX + 0.5;
+          return startX + 1;
+        }
+        let cursor = startX;
+        const childCenters = [];
+        for (const child of children) {
+          const nextCursor = place(child, node, cursor);
+          const childSpan = nextCursor - cursor;
+          childCenters.push(cursor + childSpan / 2);
+          cursor = nextCursor;
+        }
+        xPositions[node] = childCenters.reduce((a, b) => a + b, 0) / childCenters.length;
+        return cursor;
+      }
+
+      place(root, -1, 0);
+
+      positions = depth.map((d, i) => ({
+        x: xPositions[i] * 80 + 80,
+        y: d * 110 + 80,
+      }));
+    }
+
+    function renderTree() {
+      svg.innerHTML = '';
+      const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+      marker.setAttribute('id', 'arrowhead');
+      marker.setAttribute('viewBox', '0 0 10 10');
+      marker.setAttribute('refX', '5');
+      marker.setAttribute('refY', '5');
+      marker.setAttribute('markerWidth', '8');
+      marker.setAttribute('markerHeight', '8');
+      marker.setAttribute('orient', 'auto-start-reverse');
+      const arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      arrowPath.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+      arrowPath.setAttribute('fill', 'var(--accent)');
+      marker.appendChild(arrowPath);
+      defs.appendChild(marker);
+      svg.appendChild(defs);
+
+      edges.forEach(([u, v]) => {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.classList.add('edge');
+        line.setAttribute('x1', positions[u].x);
+        line.setAttribute('y1', positions[u].y);
+        line.setAttribute('x2', positions[v].x);
+        line.setAttribute('y2', positions[v].y);
+        line.dataset.u = u;
+        line.dataset.v = v;
+        svg.appendChild(line);
+      });
+
+      arrowGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      arrowGroup.setAttribute('id', 'direction-arrows');
+      svg.appendChild(arrowGroup);
+
+      adjacency.forEach((_, id) => {
+        const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        group.classList.add('node');
+        group.dataset.id = id;
+        group.setAttribute('transform', `translate(${positions[id].x}, ${positions[id].y})`);
+
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('r', 18);
+        group.appendChild(circle);
+
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        label.setAttribute('text-anchor', 'middle');
+        label.setAttribute('dominant-baseline', 'middle');
+        label.textContent = id;
+        group.appendChild(label);
+
+        group.addEventListener('click', () => handleClick(id));
+        svg.appendChild(group);
+      });
+    }
+
+    function bfsNextStep(start, goal) {
+      if (start === goal) return { found: true, next: null };
+      const queue = [start];
+      const parent = new Map([[start, -1]]);
+      while (queue.length) {
+        const node = queue.shift();
+        if (node === goal) break;
+        for (const neighbor of adjacency[node]) {
+          if (!parent.has(neighbor)) {
+            parent.set(neighbor, node);
+            queue.push(neighbor);
+          }
+        }
+      }
+      if (!parent.has(goal)) return { found: false, next: null };
+      let cur = goal;
+      let prev = parent.get(cur);
+      while (prev !== start) {
+        cur = prev;
+        prev = parent.get(cur);
+      }
+      return { found: true, next: cur };
+    }
+
+    function handleClick(nodeId) {
+      if (gameOver) return;
+      if (nodeId === answerNode) {
+        statusBox.innerHTML = `You found the centroid at <strong>node ${answerNode}</strong>! Hit restart to play again.`;
+        document.querySelectorAll('.node').forEach((n) => n.classList.remove('found'));
+        document.querySelector(`.node[data-id="${nodeId}"]`).classList.add('found');
+        gameOver = true;
+        return;
+      }
+
+      const { found, next } = bfsNextStep(nodeId, answerNode);
+      if (!found || next === null) return;
+
+      const from = positions[nodeId];
+      const to = positions[next];
+      const arrowLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      arrowLine.classList.add('direction');
+      arrowLine.setAttribute('x1', from.x);
+      arrowLine.setAttribute('y1', from.y);
+      arrowLine.setAttribute('x2', to.x);
+      arrowLine.setAttribute('y2', to.y);
+      arrowGroup.appendChild(arrowLine);
+
+      statusBox.innerHTML = `Move along the highlighted edge from <strong>${nodeId}</strong> toward <strong>${next}</strong>.`;
+    }
+
+    function startPuzzle() {
+      const parsedInput = parseInt(nodeCountInput.value, 10);
+      const nodeCount = Number.isFinite(parsedInput) && parsedInput >= 5 && parsedInput <= 50
+        ? parsedInput
+        : 13;
+      nodeCountInput.value = nodeCount;
+      const { adj, edgePairs } = generateTree(nodeCount);
+      adjacency = adj;
+      edges = edgePairs;
+      answerNode = Math.floor(Math.random() * nodeCount);
+      gameOver = false;
+      computeLayout(0);
+      renderTree();
+      statusBox.textContent = 'Click any node to get a direction toward the hidden centroid.';
+    }
+
+    restartButton.addEventListener('click', startPuzzle);
+    startPuzzle();
+  </script>
+</body>
+</html>
